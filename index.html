@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>自習室預約系統 | 座位管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
+        }
+
+        body {
+            background: #e9f0f5;
+            padding: 2rem 1.5rem;
+            min-height: 100vh;
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        /* 標題區 */
+        .header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e3c72, #2b4c7c);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+        .header p {
+            color: #4a627a;
+            margin-top: 0.4rem;
+            font-weight: 500;
+        }
+
+        /* 表單卡片 */
+        .form-card {
+            background: white;
+            border-radius: 28px;
+            padding: 1.8rem 2rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 2rem;
+            transition: box-shadow 0.2s;
+        }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            align-items: flex-end;
+        }
+        .input-group {
+            flex: 1;
+            min-width: 180px;
+        }
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #2c5a7a;
+            margin-bottom: 0.4rem;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            border: 1.5px solid #dce5ec;
+            border-radius: 20px;
+            font-size: 1rem;
+            background: #fefefe;
+            transition: all 0.2s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #2b7a62;
+            box-shadow: 0 0 0 3px rgba(43,122,98,0.2);
+        }
+        .btn-primary {
+            background: #1f6e5c;
+            color: white;
+            border: none;
+            padding: 0.9rem 1.8rem;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.05s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .btn-primary:hover {
+            background: #0e5949;
+            transform: scale(0.98);
+        }
+
+        /* 篩選列 */
+        .filter-bar {
+            display: flex;
+            gap: 0.8rem;
+            background: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 60px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            display: inline-flex;
+            width: auto;
+            backdrop-filter: blur(2px);
+        }
+        .filter-btn {
+            background: transparent;
+            border: none;
+            padding: 0.5rem 1.4rem;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: #2c4c6e;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            background: #1f6e5c;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .filter-btn:not(.active):hover {
+            background: #e2edf2;
+        }
+
+        /* 統計簡訊 */
+        .stats-badge {
+            margin-left: auto;
+            font-size: 0.85rem;
+            background: #eef3f7;
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            color: #2c5a7a;
+            font-weight: 500;
+        }
+
+        /* 預約卡片列表 (XXX_DISPLAY_STYLE) -> 現代網格卡片 */
+        .records-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        .record-card {
+            background: white;
+            border-radius: 28px;
+            padding: 1.3rem 1.5rem 1.5rem 1.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 5px 12px rgba(0,0,0,0.05);
+            border-left: 6px solid #64b6a0;
+            position: relative;
+        }
+        /* status done 專用樣式 (XXX_STATUS_DONE_TEXT 視覺效果) */
+        .record-card.done {
+            background: #f4f8fa;
+            border-left-color: #9aaebf;
+            opacity: 0.85;
+            filter: grayscale(0.03);
+        }
+        .record-card.done .status-badge {
+            background: #9aaebf;
+            color: #2a3e4f;
+            text-decoration: line-through;
+        }
+        .record-card.done .info-text {
+            text-decoration: line-through;
+            color: #7b8c9e;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .status-badge {
+            background: #1f6e5c20;
+            color: #1f6e5c;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 0.3rem 0.9rem;
+            border-radius: 30px;
+            letter-spacing: 0.3px;
+        }
+        .badge-active {
+            background: #e1f3ef;
+            color: #146b56;
+        }
+        .badge-done {
+            background: #e2e8f0;
+            color: #4b5a6b;
+            text-decoration: line-through;
+        }
+        .time-info {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0.5rem 0 0.2rem 0;
+            color: #1e2f3e;
+        }
+        .people-info {
+            font-size: 0.95rem;
+            color: #4f6f8f;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .created-date {
+            font-size: 0.7rem;
+            color: #8aa0b3;
+            margin-bottom: 1rem;
+            border-top: 1px solid #edf2f6;
+            padding-top: 0.7rem;
+        }
+        .card-actions {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 0.5rem;
+        }
+        .btn-toggle {
+            background: #eef2f7;
+            border: none;
+            padding: 0.45rem 1rem;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+            color: #2c5a7a;
+        }
+        .btn-toggle:hover {
+            background: #dce6ed;
+        }
+        .empty-message {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 40px;
+            color: #7d97af;
+            font-size: 1.1rem;
+        }
+        .footer-note {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #7d97af;
+        }
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+            .form-card {
+                padding: 1.2rem;
+            }
+            .btn-primary {
+                width: 100%;
+                margin-top: 0.6rem;
+            }
+            .form-row {
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📖 自習室預約_SYSTEM</h1>
+        <p>專注學習 · 即時預約你的專屬時段</p>
+    </div>
+
+    <!-- 新增表單區塊 -->
+    <div class="form-card">
+        <form id="reservationForm">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>📅 使用時間_FIELD_1_LABEL</label>
+                    <input type="text" id="useTime" placeholder="例如: 2025-05-20 14:00~16:00" required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label>👥 人數_FIELD_2_LABEL</label>
+                    <input type="number" id="peopleCount" placeholder="幾位同學" required min="1" step="1" value="1">
+                </div>
+                <button type="submit" class="btn-primary">＋ 新增預約記錄</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 篩選器及統計 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div class="filter-bar" id="filterBar">
+            <button data-filter="all" class="filter-btn active">📋 全部</button>
+            <button data-filter="active" class="filter-btn">🟢 進行中 (active)</button>
+            <button data-filter="done" class="filter-btn">✅ 已完成 (done)</button>
+        </div>
+        <div class="stats-badge" id="statsInfo">載入中...</div>
+    </div>
+
+    <!-- 資料顯示區塊 (XXX_DISPLAY_STYLE: 現代卡片網格) -->
+    <div id="recordsContainer" class="records-grid">
+        <!-- 動態渲染 -->
+    </div>
+    <div class="footer-note">
+        ※ 狀態切換鈕可將預約設為完成(done) / 重新啟用(active)・資料自動儲存於瀏覽器
+    </div>
+</div>
+
+<script>
+    // ========================= DATA CONTRACT =========================
+    /**
+     * 自習室預約_RECORD 資料結構定義：
+     * @typedef {Object} StudyRoomRecord
+     * @property {string} id                     - 唯一識別碼 (使用 Date.now() + 隨機字串)
+     * @property {string} createdAt             - 建立時間 ISO 字串, ex: new Date().toISOString()
+     * @property {string} status                - 狀態: 'active' 或 'done' (預設 active)
+     * @property {string} useTime               - 使用時間_FIELD_1 (對應使用者輸入)
+     * @property {number|string} peopleCount    - 人數_FIELD_2 (可為數字字串，儲存原始數值)
+     */
+
+    // localStorage key 固定為 records
+    const STORAGE_KEY = 'records';
+
+    // ---------- 輔助函數: 產生簡易唯一 ID ----------
+    function generateId() {
+        return Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+    }
+
+    // ---------- 1. createRecord(formData): 根據表單內容建立新 record object ----------
+    /**
+     * @param {Object} formData - 含有 useTime, peopleCount 的物件
+     * @returns {StudyRoomRecord}
+     */
+    function createRecord(formData) {
+        // 基本防禦: 確保人數為數字型態，若是空或非數字則給 1
+        let people = parseInt(formData.peopleCount, 10);
+        if (isNaN(people) || people < 1) people = 1;
+        
+        const newRecord = {
+            id: generateId(),
+            createdAt: new Date().toISOString(),
+            status: 'active',           // 預設 active
+            useTime: formData.useTime.trim(),
+            peopleCount: people,
+        };
+        return newRecord;
+    }
+
+    // ---------- 2. saveData(record): 新增一筆 record 到全域 array 並寫入 localStorage ----------
+    // 注意: 職責單純為「新增一筆」→ 讀取現有 records，加入新 record，存回 localStorage。
+    // 為了符合 function 職責分離, saveData 只負責新增單筆並寫入儲存, 不負責重新渲染。
+    // 外部調用後建議呼叫 renderByCurrentFilter 更新畫面。
+    function saveData(record) {
+        if (!record || !record.id) {
+            console.error('saveData 接收到無效記錄');
+            return false;
+        }
+        // 取得現有資料
+        let records = loadData();   // loadData 保證回傳陣列
+        records.push(record);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        return true;
+    }
+
+    // ---------- 3. loadData(): 從 localStorage 讀取 records array；無資料就回傳 [] ----------
+    function loadData() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            return [];
+        }
+        try {
+            const parsed = JSON.parse(raw);
+            // 基礎防護: 確保是陣列
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+            return [];
+        } catch(e) {
+            console.warn('解析 localStorage 失敗', e);
+            return [];
+        }
+    }
+
+    // ---------- 6. updateRecord(id, changes): 更新特定 record 然後寫入 localStorage ----------
+    /**
+     * @param {string} id 
+     * @param {object} changes - 要更新的欄位，例如 { status: 'done' }
+     * @returns {boolean} 是否成功更新
+     */
+    function updateRecord(id, changes) {
+        let records = loadData();
+        let updated = false;
+        const newRecords = records.map(record => {
+            if (record.id === id) {
+                updated = true;
+                return { ...record, ...changes };
+            }
+            return record;
+        });
+        if (updated) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+            return true;
+        }
+        return false;
+    }
+
+    // ---------- 全域輔助函數: 取得目前 filter 值 & 動態渲染邏輯 ----------
+    let currentFilter = 'all';   // 'all', 'active', 'done'
+
+    // 根據 status 過濾 records
+    function filterRecords(records, filterValue) {
+        if (filterValue === 'all') return records;
+        if (filterValue === 'active') return records.filter(r => r.status === 'active');
+        if (filterValue === 'done') return records.filter(r => r.status === 'done');
+        return records;
+    }
+
+    // 更新統計數字 (active / done 數量)
+    function updateStats(records) {
+        const activeCount = records.filter(r => r.status === 'active').length;
+        const doneCount = records.filter(r => r.status === 'done').length;
+        const statsSpan = document.getElementById('statsInfo');
+        if (statsSpan) {
+            statsSpan.innerHTML = `📊 active ${activeCount} ・ done ${doneCount} ・ 總計 ${records.length}`;
+        }
+    }
+
+    // ---------- 4. renderList(recordsToShow): 把 records 顯示到頁面 (採用卡片 XXX_DISPLAY_STYLE) ----------
+    // 此函式接收要顯示的 record 陣列，完全依照當前篩選條件繪製。
+    function renderList(recordsToShow) {
+        const container = document.getElementById('recordsContainer');
+        if (!container) return;
+
+        if (!recordsToShow || recordsToShow.length === 0) {
+            container.innerHTML = `<div class="empty-message">✨ 目前沒有預約記錄，快點新增一筆吧 ✨</div>`;
+            return;
+        }
+
+        // 依照建立時間排序（可選，讓最新顯示在前方）
+        const sorted = [...recordsToShow].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        let html = '';
+        for (const record of sorted) {
+            // 判斷是否為 done 狀態，套用特殊 class "done" (視覺差異)
+            const isDone = record.status === 'done';
+            const cardDoneClass = isDone ? 'done' : '';
+            
+            // 狀態文字: 要求 done 顯示成「XXX_STATUS_DONE_TEXT」 (題目敘述: done 的資料在畫面上要顯示成「XXX_STATUS_DONE_TEXT」狀態)
+            // 因此主動顯示文字為 "已完成 (done)" 或 "進行中 (active)"
+            const statusDisplayText = isDone ? '✅ XXX_STATUS_DONE_TEXT · 已完成' : '🟢 active · 進行中';
+            const statusBadgeClass = isDone ? 'badge-done' : 'badge-active';
+            
+            // 格式化建立時間 (方便閱讀)
+            let createdDateStr = '建立時間錯誤';
+            try {
+                const dateObj = new Date(record.createdAt);
+                createdDateStr = `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+            } catch(e) { createdDateStr = record.createdAt.substring(0,16); }
+            
+            // 人數欄位輔助顯示
+            const peopleLabel = record.peopleCount ? `${record.peopleCount} 人` : '未填人數';
+            
+            html += `
+                <div class="record-card ${cardDoneClass}" data-id="${record.id}">
+                    <div class="card-header">
+                        <span class="status-badge ${statusBadgeClass}">${statusDisplayText}</span>
+                        <span style="font-size:0.7rem; color:#8aa0b3;">#${record.id.slice(-6)}</span>
+                    </div>
+                    <div class="time-info">📆 ${escapeHtml(record.useTime) || '未填寫時段'}</div>
+                    <div class="people-info">👥 ${peopleLabel}</div>
+                    <div class="created-date">📅 預約建立：${createdDateStr}</div>
+                    <div class="card-actions">
+                        <button class="btn-toggle" data-action="toggleStatus" data-id="${record.id}">
+                            ${isDone ? '↺ 標記為 active' : '✓ 標記為 done'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+        
+        // 綁定按鈕事件 (事件委託也可，但為了乾淨簡單綁定動態按鈕)
+        document.querySelectorAll('.btn-toggle[data-action="toggleStatus"]').forEach(btn => {
+            btn.removeEventListener('click', handleToggleClick);
+            btn.addEventListener('click', handleToggleClick);
+        });
+    }
+    
+    // 安全防 XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+            return c;
+        });
+    }
+
+    // 切換狀態的處理函式
+    async function handleToggleClick(event) {
+        const btn = event.currentTarget;
+        const recordId = btn.getAttribute('data-id');
+        if (!recordId) return;
+        
+        // 取得目前 record 的狀態
+        const records = loadData();
+        const targetRecord = records.find(r => r.id === recordId);
+        if (!targetRecord) return;
+        
+        const newStatus = targetRecord.status === 'active' ? 'done' : 'active';
+        const success = updateRecord(recordId, { status: newStatus });
+        if (success) {
+            // 更新成功後重新根據當前 filter 渲染畫面
+            refreshUIFromStorage();
+        } else {
+            alert('更新狀態失敗，請稍後重試');
+        }
+    }
+    
+    // 重新從 localStorage 讀取，並且依照 currentFilter 過濾後渲染，更新統計。
+    function refreshUIFromStorage() {
+        const allRecords = loadData();
+        // 更新統計數字 (依據全部資料)
+        updateStats(allRecords);
+        // 根據 currentFilter 過濾要顯示的資料
+        const filtered = filterRecords(allRecords, currentFilter);
+        renderList(filtered);
+    }
+    
+    // 設定篩選按鈕事件 & UI 高亮
+    function initFilterButtons() {
+        const btns = document.querySelectorAll('.filter-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const filterValue = btn.getAttribute('data-filter');
+                if (!filterValue) return;
+                // 更新 active class
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = filterValue;
+                // 重新渲染
+                const allRecords = loadData();
+                updateStats(allRecords);
+                const filteredData = filterRecords(allRecords, currentFilter);
+                renderList(filteredData);
+            });
+        });
+    }
+    
+    // 表單新增邏輯 (createRecord + saveData 職責分離)
+    function setupFormHandler() {
+        const form = document.getElementById('reservationForm');
+        if (!form) return;
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const timeInput = document.getElementById('useTime');
+            const peopleInput = document.getElementById('peopleCount');
+            
+            const useTimeValue = timeInput.value.trim();
+            const peopleValue = peopleInput.value;
+            
+            // 必填檢核: 使用時間_FIELD_1 必填, 人數_FIELD_2 必填 (field required)
+            if (!useTimeValue) {
+                alert('請填寫「使用時間_FIELD_1」 (例如 5/20 14:00~16:00)');
+                timeInput.focus();
+                return;
+            }
+            if (!peopleValue || peopleValue <= 0) {
+                alert('請填寫有效的人數 (至少1人)');
+                peopleInput.focus();
+                return;
+            }
+            
+            // 建立 formData 物件
+            const formData = {
+                useTime: useTimeValue,
+                peopleCount: parseInt(peopleValue, 10)
+            };
+            
+            // 步驟1: 透過 createRecord 建立 record 物件
+            const newRecord = createRecord(formData);
+            // 步驟2: 使用 saveData 儲存 (僅新增)
+            const saved = saveData(newRecord);
+            if (saved) {
+                // 清空表單 (保留人數預設1，清空使用時間)
+                timeInput.value = '';
+                peopleInput.value = '1';
+                // 重新整理頁面資料 & 維持目前篩選條件 (通常新增後，若 filter 為 active 或 all 會出現)
+                // 但建議新增後維持當前 filter，如果 filter 是 done，新 active 記錄不會出現但合理符合 filter 邏輯
+                // 比較好的使用者體驗: 篩選若是 done 新增後看不到，但符合 filter 原則，不加干擾。
+                refreshUIFromStorage();
+                // 另外 scroll 提示成功感
+                const successMsg = document.createElement('div');
+                successMsg.textContent = '✓ 預約新增成功';
+                successMsg.style.position = 'fixed';
+                successMsg.style.bottom = '20px';
+                successMsg.style.right = '20px';
+                successMsg.style.backgroundColor = '#1f6e5c';
+                successMsg.style.color = 'white';
+                successMsg.style.padding = '8px 18px';
+                successMsg.style.borderRadius = '40px';
+                successMsg.style.fontSize = '0.9rem';
+                successMsg.style.zIndex = '999';
+                document.body.appendChild(successMsg);
+                setTimeout(() => successMsg.remove(), 2000);
+            } else {
+                alert('儲存失敗，請檢查 localStorage 權限');
+            }
+        });
+    }
+
+    // 初始化頁面: 載入資料, 渲染, 設定監聽器
+    function init() {
+        // 確保 localStorage 沒有寫死的假資料，若沒有任何資料則保持空陣列 (完全靜態)
+        // 但為了防止"示範資料"，不做任何預填。
+        if (!localStorage.getItem(STORAGE_KEY)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+        }
+        // 讀取全部初始記錄顯示 (預設 filter = all)
+        const allRecords = loadData();
+        updateStats(allRecords);
+        renderList(allRecords);  // 初始顯示全部
+        // 設定篩選按鈕
+        initFilterButtons();
+        // 設定表單
+        setupFormHandler();
+    }
+    
+    // 啟動系統
+    init();
+</script>
+</body>
+</html>
