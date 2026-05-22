@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>自習室預約系統 | 座位管理</title>
+    <title>自習室預約系統 | 自動釋放 + 手動完成座位</title>
     <style>
         * {
             margin: 0;
@@ -13,20 +13,18 @@
         }
 
         body {
-            background: #e9f0f5;
+            background: #eef3fa;
             padding: 2rem 1.5rem;
             min-height: 100vh;
         }
 
-        /* 主容器 */
         .container {
-            max-width: 1280px;
+            max-width: 1500px;
             margin: 0 auto;
         }
 
-        /* 標題區 */
         .header {
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             text-align: center;
         }
         .header h1 {
@@ -36,241 +34,282 @@
             background-clip: text;
             -webkit-background-clip: text;
             color: transparent;
-            letter-spacing: -0.3px;
         }
         .header p {
             color: #4a627a;
-            margin-top: 0.4rem;
-            font-weight: 500;
+            margin-top: 0.3rem;
         }
 
-        /* 表單卡片 */
-        .form-card {
+        .datetime-bar {
             background: white;
-            border-radius: 28px;
-            padding: 1.8rem 2rem;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.02);
+            border-radius: 60px;
+            padding: 1.2rem 2rem;
             margin-bottom: 2rem;
-            transition: box-shadow 0.2s;
-        }
-        .form-row {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             display: flex;
             flex-wrap: wrap;
-            gap: 1.5rem;
+            gap: 1.2rem;
             align-items: flex-end;
+            justify-content: center;
         }
-        .input-group {
+        .datetime-group {
             flex: 1;
-            min-width: 180px;
+            min-width: 160px;
         }
-        .input-group label {
+        .datetime-group label {
             display: block;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             color: #2c5a7a;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.3rem;
+            letter-spacing: 0.5px;
         }
-        .input-group input {
+        .datetime-group input {
             width: 100%;
-            padding: 0.9rem 1rem;
+            padding: 0.7rem 1rem;
             border: 1.5px solid #dce5ec;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            background: white;
+        }
+        .datetime-hint {
+            font-size: 0.7rem;
+            color: #1f6e5c;
+            margin-top: 0.3rem;
+            text-align: center;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.8rem;
+        }
+        .seat-map-panel {
+            flex: 1.4;
+            min-width: 380px;
+            background: white;
+            border-radius: 32px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            height: fit-content;
+        }
+        .booking-panel {
+            flex: 1.6;
+            min-width: 380px;
+        }
+
+        .seat-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            margin-top: 1rem;
+        }
+        .seat-card {
+            background: #f8fafc;
             border-radius: 20px;
-            font-size: 1rem;
-            background: #fefefe;
+            padding: 0.9rem 0.3rem;
+            text-align: center;
+            cursor: pointer;
             transition: all 0.2s;
+            border: 2px solid #e2e8f0;
+            font-weight: 600;
+            color: #1e293b;
+            position: relative;
         }
-        .input-group input:focus {
-            outline: none;
-            border-color: #2b7a62;
-            box-shadow: 0 0 0 3px rgba(43,122,98,0.2);
+        .seat-card:hover:not(.disabled) {
+            transform: translateY(-3px);
+            border-color: #1f6e5c;
+            background: #eef9f5;
         }
-        .btn-primary {
+        .seat-card.selected {
+            background: #1f6e5c;
+            color: white;
+            border-color: #0e5949;
+            box-shadow: 0 4px 10px rgba(31,110,92,0.3);
+        }
+        .seat-card.disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+        .seat-label {
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+        .seat-status-icon {
+            font-size: 0.65rem;
+            display: block;
+            margin-top: 4px;
+        }
+        .map-legend {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.2rem;
+            font-size: 0.7rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 20px;
+            margin-right: 4px;
+        }
+
+        .btn-book {
             background: #1f6e5c;
             color: white;
             border: none;
-            padding: 0.9rem 1.8rem;
-            border-radius: 40px;
+            padding: 0.8rem 2rem;
+            border-radius: 60px;
             font-weight: 700;
             font-size: 1rem;
             cursor: pointer;
-            transition: background 0.2s, transform 0.05s;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            transition: 0.2s;
+            width: 100%;
+            margin-top: 1rem;
         }
-        .btn-primary:hover {
+        .btn-book:hover {
             background: #0e5949;
-            transform: scale(0.98);
         }
 
-        /* 篩選列 */
+        .filter-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            gap: 0.8rem;
+        }
         .filter-bar {
             display: flex;
-            gap: 0.8rem;
+            gap: 0.5rem;
             background: white;
-            padding: 0.8rem 1.5rem;
+            padding: 0.3rem 1rem;
             border-radius: 60px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-            display: inline-flex;
-            width: auto;
-            backdrop-filter: blur(2px);
         }
         .filter-btn {
             background: transparent;
             border: none;
-            padding: 0.5rem 1.4rem;
+            padding: 0.5rem 1.2rem;
             border-radius: 40px;
             font-weight: 600;
-            font-size: 0.9rem;
             cursor: pointer;
-            color: #2c4c6e;
-            transition: all 0.2s;
+            transition: 0.2s;
         }
-        .filter-btn.active {
+        .filter-btn[data-filter="upcoming"] {
+            color: #e68a2e;
+        }
+        .filter-btn[data-filter="upcoming"].active {
+            background: #e68a2e;
+            color: white;
+        }
+        .filter-btn[data-filter="active"] {
+            color: #1f6e5c;
+        }
+        .filter-btn[data-filter="active"].active {
             background: #1f6e5c;
             color: white;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .filter-btn:not(.active):hover {
-            background: #e2edf2;
+        .filter-btn[data-filter="done"] {
+            color: #6c757d;
         }
-
-        /* 統計簡訊 */
+        .filter-btn[data-filter="done"].active {
+            background: #6c757d;
+            color: white;
+        }
         .stats-badge {
-            margin-left: auto;
-            font-size: 0.85rem;
-            background: #eef3f7;
+            background: white;
             padding: 0.4rem 1rem;
             border-radius: 40px;
-            color: #2c5a7a;
+            font-size: 0.8rem;
             font-weight: 500;
         }
 
-        /* 預約卡片列表 (XXX_DISPLAY_STYLE) -> 現代網格卡片 */
         .records-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            max-height: 520px;
+            overflow-y: auto;
         }
         .record-card {
             background: white;
-            border-radius: 28px;
-            padding: 1.3rem 1.5rem 1.5rem 1.5rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 5px 12px rgba(0,0,0,0.05);
-            border-left: 6px solid #64b6a0;
-            position: relative;
+            border-radius: 24px;
+            padding: 1rem 1.2rem;
+            transition: 0.1s;
         }
-        /* status done 專用樣式 (XXX_STATUS_DONE_TEXT 視覺效果) */
+        .record-card.upcoming {
+            border-left: 5px solid #e68a2e;
+        }
+        .record-card.active-using {
+            border-left: 5px solid #1f6e5c;
+        }
         .record-card.done {
-            background: #f4f8fa;
-            border-left-color: #9aaebf;
+            border-left: 5px solid #9aaebf;
+            background: #f8fafc;
             opacity: 0.85;
-            filter: grayscale(0.03);
         }
-        .record-card.done .status-badge {
-            background: #9aaebf;
-            color: #2a3e4f;
-            text-decoration: line-through;
-        }
-        .record-card.done .info-text {
-            text-decoration: line-through;
-            color: #7b8c9e;
-        }
-        .card-header {
+        .card-row {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            align-items: center;
             flex-wrap: wrap;
-            margin-bottom: 1rem;
+            gap: 0.5rem;
         }
         .status-badge {
-            background: #1f6e5c20;
-            color: #1f6e5c;
-            font-weight: 700;
-            font-size: 0.75rem;
-            padding: 0.3rem 0.9rem;
-            border-radius: 30px;
-            letter-spacing: 0.3px;
-        }
-        .badge-active {
-            background: #e1f3ef;
-            color: #146b56;
-        }
-        .badge-done {
-            background: #e2e8f0;
-            color: #4b5a6b;
-            text-decoration: line-through;
-        }
-        .time-info {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin: 0.5rem 0 0.2rem 0;
-            color: #1e2f3e;
-        }
-        .people-info {
-            font-size: 0.95rem;
-            color: #4f6f8f;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .created-date {
             font-size: 0.7rem;
-            color: #8aa0b3;
-            margin-bottom: 1rem;
-            border-top: 1px solid #edf2f6;
-            padding-top: 0.7rem;
+            font-weight: bold;
+            padding: 0.2rem 0.8rem;
+            border-radius: 30px;
         }
-        .card-actions {
-            display: flex;
-            gap: 0.8rem;
-            margin-top: 0.5rem;
+        .status-badge.upcoming {
+            background: #fef3e2;
+            color: #e68a2e;
         }
-        .btn-toggle {
+        .status-badge.active-using {
+            background: #e1f3ef;
+            color: #1f6e5c;
+        }
+        .status-badge.done {
+            background: #e2e8f0;
+            color: #64748b;
+        }
+        .btn-manual {
             background: #eef2f7;
             border: none;
-            padding: 0.45rem 1rem;
-            border-radius: 40px;
-            font-weight: 600;
-            font-size: 0.8rem;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
             cursor: pointer;
-            transition: 0.1s;
-            color: #2c5a7a;
-        }
-        .btn-toggle:hover {
-            background: #dce6ed;
         }
         .empty-message {
             text-align: center;
-            padding: 3rem;
+            padding: 2rem;
             background: white;
-            border-radius: 40px;
+            border-radius: 28px;
             color: #7d97af;
-            font-size: 1.1rem;
         }
-        .footer-note {
-            margin-top: 2rem;
+        .current-hint {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
             text-align: center;
-            font-size: 0.75rem;
-            color: #7d97af;
+            padding: 10px;
+            border-radius: 40px;
+            background: #f1f5f9;
         }
-        @media (max-width: 640px) {
-            body {
-                padding: 1rem;
-            }
-            .form-card {
-                padding: 1.2rem;
-            }
-            .btn-primary {
-                width: 100%;
-                margin-top: 0.6rem;
-            }
-            .form-row {
+        @media (max-width: 900px) {
+            .dashboard {
                 flex-direction: column;
-                gap: 0.8rem;
+            }
+            .datetime-bar {
+                border-radius: 32px;
             }
         }
     </style>
@@ -279,369 +318,513 @@
 <div class="container">
     <div class="header">
         <h1>📖 自習室預約_SYSTEM</h1>
-        <p>專注學習 · 即時預約你的專屬時段</p>
+        <p>先選日期時段 → 座位表自動顯示可選座位 → 點擊座位預約</p>
     </div>
 
-    <!-- 新增表單區塊 -->
-    <div class="form-card">
-        <form id="reservationForm">
-            <div class="form-row">
-                <div class="input-group">
-                    <label>📅 使用時間_FIELD_1_LABEL</label>
-                    <input type="text" id="useTime" placeholder="例如: 2025-05-20 14:00~16:00" required autocomplete="off">
-                </div>
-                <div class="input-group">
-                    <label>👥 人數_FIELD_2_LABEL</label>
-                    <input type="number" id="peopleCount" placeholder="幾位同學" required min="1" step="1" value="1">
-                </div>
-                <button type="submit" class="btn-primary">＋ 新增預約記錄</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- 篩選器及統計 -->
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
-        <div class="filter-bar" id="filterBar">
-            <button data-filter="all" class="filter-btn active">📋 全部</button>
-            <button data-filter="active" class="filter-btn">🟢 進行中 (active)</button>
-            <button data-filter="done" class="filter-btn">✅ 已完成 (done)</button>
+    <div class="datetime-bar">
+        <div class="datetime-group">
+            <label>📅 使用日期</label>
+            <input type="date" id="useDate" required>
         </div>
-        <div class="stats-badge" id="statsInfo">載入中...</div>
+        <div class="datetime-group">
+            <label>🕐 開始時間</label>
+            <input type="time" id="startTime" step="60" required>
+        </div>
+        <div class="datetime-group">
+            <label>🕒 結束時間</label>
+            <input type="time" id="endTime" step="60" required>
+        </div>
+        <div class="datetime-hint">
+            ⚡ 變更日期/時間後，座位表會即時更新可選座位
+        </div>
     </div>
 
-    <!-- 資料顯示區塊 (XXX_DISPLAY_STYLE: 現代卡片網格) -->
-    <div id="recordsContainer" class="records-grid">
-        <!-- 動態渲染 -->
+    <div class="dashboard">
+        <div class="seat-map-panel">
+            <h3>🗺️ 座位表 (點擊可預約座位)</h3>
+            <div class="seat-grid" id="seatGrid"></div>
+            <div class="map-legend">
+                <span><span class="legend-dot" style="background:#cbd5e1;"></span> 可預約</span>
+                <span><span class="legend-dot" style="background:#1f6e5c;"></span> 您已選中</span>
+                <span><span class="legend-dot" style="background:#ef4444;"></span> 已被預約</span>
+            </div>
+            <button class="btn-book" id="bookBtn">＋ 預約選中座位</button>
+            <div class="current-hint" id="selectedHint">⚡ 請先選擇日期及時段，再點座位</div>
+        </div>
+
+        <div class="booking-panel">
+            <div class="filter-section">
+                <div class="filter-bar" id="filterBar">
+                    <button data-filter="upcoming" class="filter-btn">⏳ 已預約</button>
+                    <button data-filter="active" class="filter-btn">🟢 進行中</button>
+                    <button data-filter="done" class="filter-btn">✅ 已完成</button>
+                </div>
+                <div class="stats-badge" id="statsInfo"></div>
+            </div>
+            <div id="recordsContainer" class="records-grid"></div>
+        </div>
     </div>
-    <div class="footer-note">
-        ※ 狀態切換鈕可將預約設為完成(done) / 重新啟用(active)・資料自動儲存於瀏覽器
-    </div>
+    <div class="footer-note" style="margin-top:1.5rem; text-align:center; font-size:0.7rem;">※ 手動完成後座位立即釋放，時間到期自動轉為已完成</div>
 </div>
 
 <script>
-    // ========================= DATA CONTRACT =========================
-    /**
-     * 自習室預約_RECORD 資料結構定義：
-     * @typedef {Object} StudyRoomRecord
-     * @property {string} id                     - 唯一識別碼 (使用 Date.now() + 隨機字串)
-     * @property {string} createdAt             - 建立時間 ISO 字串, ex: new Date().toISOString()
-     * @property {string} status                - 狀態: 'active' 或 'done' (預設 active)
-     * @property {string} useTime               - 使用時間_FIELD_1 (對應使用者輸入)
-     * @property {number|string} peopleCount    - 人數_FIELD_2 (可為數字字串，儲存原始數值)
-     */
+    // ======================= 全新實例：不保留任何舊記錄 =======================
+    localStorage.setItem('records', JSON.stringify([]));
+    
+    // 24個座位 (6x4)
+    const SEATS = [];
+    const rows = ['A', 'B', 'C', 'D'];
+    for (let r of rows) {
+        for (let i = 1; i <= 6; i++) {
+            SEATS.push(`${r}${i.toString().padStart(2,'0')}`);
+        }
+    }
 
-    // localStorage key 固定為 records
-    const STORAGE_KEY = 'records';
+    let currentFilter = 'upcoming';
+    let selectedSeat = null;
+    let currentDate = '';
+    let currentStart = '';
+    let currentEnd = '';
 
-    // ---------- 輔助函數: 產生簡易唯一 ID ----------
+    // 每30秒自動檢查過期預約
+    let autoExpireInterval = null;
+
     function generateId() {
-        return Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        return Date.now() + '-' + Math.random().toString(36).substring(2, 10);
     }
 
-    // ---------- 1. createRecord(formData): 根據表單內容建立新 record object ----------
-    /**
-     * @param {Object} formData - 含有 useTime, peopleCount 的物件
-     * @returns {StudyRoomRecord}
-     */
-    function createRecord(formData) {
-        // 基本防禦: 確保人數為數字型態，若是空或非數字則給 1
-        let people = parseInt(formData.peopleCount, 10);
-        if (isNaN(people) || people < 1) people = 1;
-        
-        const newRecord = {
-            id: generateId(),
-            createdAt: new Date().toISOString(),
-            status: 'active',           // 預設 active
-            useTime: formData.useTime.trim(),
-            peopleCount: people,
-        };
-        return newRecord;
-    }
-
-    // ---------- 2. saveData(record): 新增一筆 record 到全域 array 並寫入 localStorage ----------
-    // 注意: 職責單純為「新增一筆」→ 讀取現有 records，加入新 record，存回 localStorage。
-    // 為了符合 function 職責分離, saveData 只負責新增單筆並寫入儲存, 不負責重新渲染。
-    // 外部調用後建議呼叫 renderByCurrentFilter 更新畫面。
-    function saveData(record) {
-        if (!record || !record.id) {
-            console.error('saveData 接收到無效記錄');
-            return false;
-        }
-        // 取得現有資料
-        let records = loadData();   // loadData 保證回傳陣列
-        records.push(record);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-        return true;
-    }
-
-    // ---------- 3. loadData(): 從 localStorage 讀取 records array；無資料就回傳 [] ----------
     function loadData() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-            return [];
-        }
+        const raw = localStorage.getItem('records');
+        if (!raw) return [];
         try {
             const parsed = JSON.parse(raw);
-            // 基礎防護: 確保是陣列
-            if (Array.isArray(parsed)) {
-                return parsed;
-            }
-            return [];
-        } catch(e) {
-            console.warn('解析 localStorage 失敗', e);
-            return [];
-        }
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
     }
 
-    // ---------- 6. updateRecord(id, changes): 更新特定 record 然後寫入 localStorage ----------
-    /**
-     * @param {string} id 
-     * @param {object} changes - 要更新的欄位，例如 { status: 'done' }
-     * @returns {boolean} 是否成功更新
-     */
-    function updateRecord(id, changes) {
+    function saveAllData(records) {
+        localStorage.setItem('records', JSON.stringify(records));
+    }
+
+    // 自動將過期的 active 預約轉為 done (時間到期)
+    function expireOldReservations() {
         let records = loadData();
-        let updated = false;
+        const now = new Date();
+        let changed = false;
         const newRecords = records.map(record => {
-            if (record.id === id) {
-                updated = true;
-                return { ...record, ...changes };
+            if (record.status === 'active') {
+                const endDateTime = new Date(`${record.date}T${record.endTime}:00`);
+                if (now > endDateTime) {
+                    changed = true;
+                    return { ...record, status: 'done' };
+                }
             }
             return record;
         });
+        if (changed) {
+            saveAllData(newRecords);
+            return newRecords;
+        }
+        return records;
+    }
+
+    // 手動完成：直接將狀態改為 done (座位立即釋放)
+    function manualCompleteRecord(id) {
+        let records = loadData();
+        let updated = false;
+        const newRecords = records.map(r => {
+            if (r.id === id && r.status === 'active') {
+                updated = true;
+                return { ...r, status: 'done' };
+            }
+            return r;
+        });
         if (updated) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+            saveAllData(newRecords);
             return true;
         }
         return false;
     }
 
-    // ---------- 全域輔助函數: 取得目前 filter 值 & 動態渲染邏輯 ----------
-    let currentFilter = 'all';   // 'all', 'active', 'done'
-
-    // 根據 status 過濾 records
-    function filterRecords(records, filterValue) {
-        if (filterValue === 'all') return records;
-        if (filterValue === 'active') return records.filter(r => r.status === 'active');
-        if (filterValue === 'done') return records.filter(r => r.status === 'done');
-        return records;
+    function isSeatOccupied(seatNumber, date, startTime, endTime, excludeId = null) {
+        const records = loadData();
+        return records.some(record => {
+            if (record.status !== 'active') return false;
+            if (excludeId && record.id === excludeId) return false;
+            if (record.seatNumber !== seatNumber) return false;
+            if (record.date !== date) return false;
+            return (startTime < record.endTime && endTime > record.startTime);
+        });
     }
 
-    // 更新統計數字 (active / done 數量)
-    function updateStats(records) {
-        const activeCount = records.filter(r => r.status === 'active').length;
-        const doneCount = records.filter(r => r.status === 'done').length;
-        const statsSpan = document.getElementById('statsInfo');
-        if (statsSpan) {
-            statsSpan.innerHTML = `📊 active ${activeCount} ・ done ${doneCount} ・ 總計 ${records.length}`;
+    function hasUserOverlap(date, startTime, endTime, excludeId = null) {
+        const records = loadData();
+        return records.some(record => {
+            if (record.status !== 'active') return false;
+            if (excludeId && record.id === excludeId) return false;
+            if (record.date !== date) return false;
+            return (startTime < record.endTime && endTime > record.startTime);
+        });
+    }
+
+    function canBook(seatNumber, date, startTime, endTime) {
+        if (isSeatOccupied(seatNumber, date, startTime, endTime)) {
+            return { ok: false, reason: `座位 ${seatNumber} 在該時段已被預約` };
         }
+        if (hasUserOverlap(date, startTime, endTime)) {
+            return { ok: false, reason: `您在同一天已有重疊時段的預約，無法同時使用多個座位` };
+        }
+        if (startTime >= endTime) {
+            return { ok: false, reason: `結束時間必須晚於開始時間` };
+        }
+        return { ok: true };
     }
 
-    // ---------- 4. renderList(recordsToShow): 把 records 顯示到頁面 (採用卡片 XXX_DISPLAY_STYLE) ----------
-    // 此函式接收要顯示的 record 陣列，完全依照當前篩選條件繪製。
-    function renderList(recordsToShow) {
-        const container = document.getElementById('recordsContainer');
+    function createRecord(seatNumber, date, startTime, endTime) {
+        const useTimeDisplay = `${date} ${startTime} ~ ${endTime}`;
+        return {
+            id: generateId(),
+            createdAt: new Date().toISOString(),
+            status: 'active',
+            useTime: useTimeDisplay,
+            seatNumber: seatNumber,
+            date: date,
+            startTime: startTime,
+            endTime: endTime,
+        };
+    }
+
+    function addRecord(record) {
+        const records = loadData();
+        records.push(record);
+        saveAllData(records);
+    }
+
+    // 獲取預約的動態狀態 (僅用於顯示，不改變資料)
+    function getDynamicStatus(record) {
+        if (record.status === 'done') return { type: 'done', text: '✅ 已完成' };
+        const now = new Date();
+        const startDateTime = new Date(`${record.date}T${record.startTime}:00`);
+        const endDateTime = new Date(`${record.date}T${record.endTime}:00`);
+        if (now < startDateTime) return { type: 'upcoming', text: '⏳ 已預約' };
+        if (now >= startDateTime && now <= endDateTime) return { type: 'active-using', text: '🟢 使用中' };
+        // 時間已過期 -> 回傳 done (實際轉換由 expireOldReservations 處理)
+        return { type: 'done', text: '✅ 已完成' };
+    }
+
+    function renderSeatMap() {
+        const container = document.getElementById('seatGrid');
         if (!container) return;
-
-        if (!recordsToShow || recordsToShow.length === 0) {
-            container.innerHTML = `<div class="empty-message">✨ 目前沒有預約記錄，快點新增一筆吧 ✨</div>`;
-            return;
+        
+        // 先過期處理，確保座位狀態最新
+        expireOldReservations();
+        
+        const hasDateTime = currentDate && currentStart && currentEnd;
+        let occupiedSeats = new Set();
+        if (hasDateTime) {
+            for (let seat of SEATS) {
+                if (isSeatOccupied(seat, currentDate, currentStart, currentEnd)) {
+                    occupiedSeats.add(seat);
+                }
+            }
         }
-
-        // 依照建立時間排序（可選，讓最新顯示在前方）
-        const sorted = [...recordsToShow].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         let html = '';
-        for (const record of sorted) {
-            // 判斷是否為 done 狀態，套用特殊 class "done" (視覺差異)
-            const isDone = record.status === 'done';
-            const cardDoneClass = isDone ? 'done' : '';
-            
-            // 狀態文字: 要求 done 顯示成「XXX_STATUS_DONE_TEXT」 (題目敘述: done 的資料在畫面上要顯示成「XXX_STATUS_DONE_TEXT」狀態)
-            // 因此主動顯示文字為 "已完成 (done)" 或 "進行中 (active)"
-            const statusDisplayText = isDone ? '✅ XXX_STATUS_DONE_TEXT · 已完成' : '🟢 active · 進行中';
-            const statusBadgeClass = isDone ? 'badge-done' : 'badge-active';
-            
-            // 格式化建立時間 (方便閱讀)
-            let createdDateStr = '建立時間錯誤';
-            try {
-                const dateObj = new Date(record.createdAt);
-                createdDateStr = `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-            } catch(e) { createdDateStr = record.createdAt.substring(0,16); }
-            
-            // 人數欄位輔助顯示
-            const peopleLabel = record.peopleCount ? `${record.peopleCount} 人` : '未填人數';
-            
+        for (let seat of SEATS) {
+            const isOccupied = occupiedSeats.has(seat);
+            const isSelected = (selectedSeat === seat);
+            let seatClass = 'seat-card';
+            let statusText = '';
+            if (!hasDateTime) {
+                seatClass += ' disabled';
+                statusText = '🔒 先選時段';
+            } else if (isOccupied) {
+                seatClass += ' disabled';
+                statusText = '🔴 已被預約';
+            } else if (isSelected) {
+                seatClass += ' selected';
+                statusText = '✔ 已選中';
+            } else {
+                statusText = '⚪ 可預約';
+            }
             html += `
-                <div class="record-card ${cardDoneClass}" data-id="${record.id}">
-                    <div class="card-header">
-                        <span class="status-badge ${statusBadgeClass}">${statusDisplayText}</span>
-                        <span style="font-size:0.7rem; color:#8aa0b3;">#${record.id.slice(-6)}</span>
+                <div class="${seatClass}" data-seat="${seat}">
+                    <div class="seat-label">${seat}</div>
+                    <div class="seat-status-icon">${statusText}</div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+        
+        document.querySelectorAll('.seat-card').forEach(el => {
+            const seatVal = el.getAttribute('data-seat');
+            const isDisabled = el.classList.contains('disabled');
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!hasDateTime) {
+                    alert('請先選擇日期與開始/結束時間');
+                    return;
+                }
+                if (isDisabled) {
+                    if (isSeatOccupied(seatVal, currentDate, currentStart, currentEnd)) {
+                        alert(`座位 ${seatVal} 在 ${currentDate} ${currentStart}~${currentEnd} 已被預約，無法選擇`);
+                    } else {
+                        alert('請先完成日期與時間選擇');
+                    }
+                    return;
+                }
+                if (selectedSeat === seatVal) {
+                    selectedSeat = null;
+                } else {
+                    selectedSeat = seatVal;
+                }
+                renderSeatMap();
+                updateSelectedHint();
+            });
+        });
+        updateSelectedHint();
+    }
+
+    function updateSelectedHint() {
+        const hintDiv = document.getElementById('selectedHint');
+        if (hintDiv) {
+            if (!currentDate || !currentStart || !currentEnd) {
+                hintDiv.innerHTML = '⚠️ 請先選擇日期與時段，再點擊座位預約';
+                hintDiv.style.background = '#fff3e0';
+            } else if (selectedSeat) {
+                hintDiv.innerHTML = `✅ 已選中座位：${selectedSeat} ｜ 時段 ${currentDate} ${currentStart}~${currentEnd}`;
+                hintDiv.style.background = '#e1f3ef';
+            } else {
+                hintDiv.innerHTML = `📌 當前時段：${currentDate} ${currentStart}~${currentEnd} ｜ 點擊上方可預約座位`;
+                hintDiv.style.background = '#f1f5f9';
+            }
+        }
+    }
+
+    function renderList() {
+        let records = loadData();
+        // 過期轉換
+        records = expireOldReservations();
+        
+        let filtered = records.filter(record => {
+            const dynamic = getDynamicStatus(record);
+            if (currentFilter === 'upcoming') return dynamic.type === 'upcoming';
+            if (currentFilter === 'active') return dynamic.type === 'active-using';
+            if (currentFilter === 'done') return dynamic.type === 'done';
+            return true;
+        });
+        
+        const sorted = [...filtered].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const container = document.getElementById('recordsContainer');
+        if (!container) return;
+        
+        if (sorted.length === 0) {
+            container.innerHTML = `<div class="empty-message">📭 暫無${currentFilter === 'upcoming' ? '已預約' : currentFilter === 'active' ? '進行中' : '已完成'}的預約紀錄</div>`;
+            updateStats(records);
+            return;
+        }
+        
+        let html = '';
+        for (let rec of sorted) {
+            const dynamic = getDynamicStatus(rec);
+            let statusClass = '';
+            let borderClass = '';
+            if (dynamic.type === 'upcoming') {
+                statusClass = 'upcoming';
+                borderClass = 'upcoming';
+            } else if (dynamic.type === 'active-using') {
+                statusClass = 'active-using';
+                borderClass = 'active-using';
+            } else {
+                statusClass = 'done';
+                borderClass = 'done';
+            }
+            // 只有 active 狀態且尚未過期的才顯示手動完成按鈕
+            const showManualBtn = (rec.status === 'active' && dynamic.type !== 'done');
+            html += `
+                <div class="record-card ${borderClass}">
+                    <div class="card-row">
+                        <div><strong>${rec.seatNumber}</strong> | ${rec.useTime}</div>
+                        <span class="status-badge ${statusClass}">${dynamic.text}</span>
                     </div>
-                    <div class="time-info">📆 ${escapeHtml(record.useTime) || '未填寫時段'}</div>
-                    <div class="people-info">👥 ${peopleLabel}</div>
-                    <div class="created-date">📅 預約建立：${createdDateStr}</div>
-                    <div class="card-actions">
-                        <button class="btn-toggle" data-action="toggleStatus" data-id="${record.id}">
-                            ${isDone ? '↺ 標記為 active' : '✓ 標記為 done'}
-                        </button>
+                    <div class="card-row" style="margin-top: 6px;">
+                        <span style="font-size:0.7rem;">📅 建立: ${new Date(rec.createdAt).toLocaleString()}</span>
+                        ${showManualBtn ? `<button class="btn-manual" data-id="${rec.id}">✓ 手動完成</button>` : ''}
                     </div>
                 </div>
             `;
         }
         container.innerHTML = html;
         
-        // 綁定按鈕事件 (事件委託也可，但為了乾淨簡單綁定動態按鈕)
-        document.querySelectorAll('.btn-toggle[data-action="toggleStatus"]').forEach(btn => {
-            btn.removeEventListener('click', handleToggleClick);
-            btn.addEventListener('click', handleToggleClick);
+        document.querySelectorAll('.btn-manual').forEach(btn => {
+            btn.removeEventListener('click', handleManualDone);
+            btn.addEventListener('click', handleManualDone);
         });
+        updateStats(records);
     }
     
-    // 安全防 XSS
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-            return c;
-        });
+    function updateStats(records) {
+        const updatedRecords = expireOldReservations();
+        let upcoming = 0, activeCnt = 0, doneCnt = 0;
+        for (let r of updatedRecords) {
+            const dyn = getDynamicStatus(r);
+            if (dyn.type === 'upcoming') upcoming++;
+            else if (dyn.type === 'active-using') activeCnt++;
+            else doneCnt++;
+        }
+        document.getElementById('statsInfo').innerHTML = `⏳已預約 ${upcoming} ｜ 🟢使用中 ${activeCnt} ｜ ✅已完成 ${doneCnt}`;
     }
-
-    // 切換狀態的處理函式
-    async function handleToggleClick(event) {
-        const btn = event.currentTarget;
-        const recordId = btn.getAttribute('data-id');
-        if (!recordId) return;
-        
-        // 取得目前 record 的狀態
-        const records = loadData();
-        const targetRecord = records.find(r => r.id === recordId);
-        if (!targetRecord) return;
-        
-        const newStatus = targetRecord.status === 'active' ? 'done' : 'active';
-        const success = updateRecord(recordId, { status: newStatus });
+    
+    function handleManualDone(e) {
+        const btn = e.currentTarget;
+        const id = btn.getAttribute('data-id');
+        const success = manualCompleteRecord(id);
         if (success) {
-            // 更新成功後重新根據當前 filter 渲染畫面
-            refreshUIFromStorage();
+            // 手動完成後立即刷新座位表和列表，座位釋放
+            renderSeatMap();
+            renderList();
+            // 顯示提示
+            const msg = document.createElement('div');
+            msg.innerText = `✓ 已完成預約，座位已釋放`;
+            msg.style.position = 'fixed';
+            msg.style.bottom = '20px';
+            msg.style.right = '20px';
+            msg.style.backgroundColor = '#1f6e5c';
+            msg.style.color = 'white';
+            msg.style.padding = '8px 18px';
+            msg.style.borderRadius = '40px';
+            msg.style.zIndex = '1000';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
         } else {
-            alert('更新狀態失敗，請稍後重試');
+            alert('操作失敗，請稍後再試');
         }
     }
     
-    // 重新從 localStorage 讀取，並且依照 currentFilter 過濾後渲染，更新統計。
-    function refreshUIFromStorage() {
-        const allRecords = loadData();
-        // 更新統計數字 (依據全部資料)
-        updateStats(allRecords);
-        // 根據 currentFilter 過濾要顯示的資料
-        const filtered = filterRecords(allRecords, currentFilter);
-        renderList(filtered);
+    function onDateTimeChange() {
+        const dateInput = document.getElementById('useDate');
+        const startInput = document.getElementById('startTime');
+        const endInput = document.getElementById('endTime');
+        currentDate = dateInput.value;
+        currentStart = startInput.value;
+        currentEnd = endInput.value;
+        selectedSeat = null;
+        renderSeatMap();
+        renderList();
     }
     
-    // 設定篩選按鈕事件 & UI 高亮
-    function initFilterButtons() {
+    function setupBooking() {
+        const bookBtn = document.getElementById('bookBtn');
+        bookBtn.addEventListener('click', () => {
+            if (!selectedSeat) {
+                alert('請先選擇日期/時間，再從座位表點擊一個可預約座位');
+                return;
+            }
+            const finalDate = currentDate;
+            const finalStart = currentStart;
+            const finalEnd = currentEnd;
+            
+            if (!finalDate || !finalStart || !finalEnd) {
+                alert('請完整填寫日期與時間');
+                return;
+            }
+            if (finalStart >= finalEnd) {
+                alert('結束時間必須晚於開始時間');
+                return;
+            }
+            // 再次檢查座位是否仍可預約
+            if (isSeatOccupied(selectedSeat, finalDate, finalStart, finalEnd)) {
+                alert(`座位 ${selectedSeat} 在該時段已被預約，請重新整理或選擇其他座位`);
+                renderSeatMap();
+                return;
+            }
+            if (hasUserOverlap(finalDate, finalStart, finalEnd)) {
+                alert(`您在同一天已有重疊時段的預約，無法再預約新座位`);
+                return;
+            }
+            
+            const newRecord = createRecord(selectedSeat, finalDate, finalStart, finalEnd);
+            addRecord(newRecord);
+            selectedSeat = null;
+            renderSeatMap();
+            renderList();
+            
+            const msg = document.createElement('div');
+            msg.innerText = `✓ 成功預約 ${newRecord.seatNumber} ${finalDate} ${finalStart}~${finalEnd}`;
+            msg.style.position = 'fixed';
+            msg.style.bottom = '20px';
+            msg.style.right = '20px';
+            msg.style.backgroundColor = '#1f6e5c';
+            msg.style.color = 'white';
+            msg.style.padding = '8px 18px';
+            msg.style.borderRadius = '40px';
+            msg.style.zIndex = '1000';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+        });
+    }
+    
+    function initFilters() {
         const btns = document.querySelectorAll('.filter-btn');
         btns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const filterValue = btn.getAttribute('data-filter');
-                if (!filterValue) return;
-                // 更新 active class
+            btn.addEventListener('click', () => {
+                const filter = btn.getAttribute('data-filter');
+                if (!filter) return;
                 btns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                currentFilter = filterValue;
-                // 重新渲染
-                const allRecords = loadData();
-                updateStats(allRecords);
-                const filteredData = filterRecords(allRecords, currentFilter);
-                renderList(filteredData);
+                currentFilter = filter;
+                renderList();
             });
         });
+        document.querySelector('.filter-btn[data-filter="upcoming"]').classList.add('active');
     }
     
-    // 表單新增邏輯 (createRecord + saveData 職責分離)
-    function setupFormHandler() {
-        const form = document.getElementById('reservationForm');
-        if (!form) return;
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const timeInput = document.getElementById('useTime');
-            const peopleInput = document.getElementById('peopleCount');
-            
-            const useTimeValue = timeInput.value.trim();
-            const peopleValue = peopleInput.value;
-            
-            // 必填檢核: 使用時間_FIELD_1 必填, 人數_FIELD_2 必填 (field required)
-            if (!useTimeValue) {
-                alert('請填寫「使用時間_FIELD_1」 (例如 5/20 14:00~16:00)');
-                timeInput.focus();
-                return;
-            }
-            if (!peopleValue || peopleValue <= 0) {
-                alert('請填寫有效的人數 (至少1人)');
-                peopleInput.focus();
-                return;
-            }
-            
-            // 建立 formData 物件
-            const formData = {
-                useTime: useTimeValue,
-                peopleCount: parseInt(peopleValue, 10)
-            };
-            
-            // 步驟1: 透過 createRecord 建立 record 物件
-            const newRecord = createRecord(formData);
-            // 步驟2: 使用 saveData 儲存 (僅新增)
-            const saved = saveData(newRecord);
-            if (saved) {
-                // 清空表單 (保留人數預設1，清空使用時間)
-                timeInput.value = '';
-                peopleInput.value = '1';
-                // 重新整理頁面資料 & 維持目前篩選條件 (通常新增後，若 filter 為 active 或 all 會出現)
-                // 但建議新增後維持當前 filter，如果 filter 是 done，新 active 記錄不會出現但合理符合 filter 邏輯
-                // 比較好的使用者體驗: 篩選若是 done 新增後看不到，但符合 filter 原則，不加干擾。
-                refreshUIFromStorage();
-                // 另外 scroll 提示成功感
-                const successMsg = document.createElement('div');
-                successMsg.textContent = '✓ 預約新增成功';
-                successMsg.style.position = 'fixed';
-                successMsg.style.bottom = '20px';
-                successMsg.style.right = '20px';
-                successMsg.style.backgroundColor = '#1f6e5c';
-                successMsg.style.color = 'white';
-                successMsg.style.padding = '8px 18px';
-                successMsg.style.borderRadius = '40px';
-                successMsg.style.fontSize = '0.9rem';
-                successMsg.style.zIndex = '999';
-                document.body.appendChild(successMsg);
-                setTimeout(() => successMsg.remove(), 2000);
-            } else {
-                alert('儲存失敗，請檢查 localStorage 權限');
-            }
-        });
+    function initDateTimePicker() {
+        const dateInput = document.getElementById('useDate');
+        const startInput = document.getElementById('startTime');
+        const endInput = document.getElementById('endTime');
+        
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        dateInput.min = todayStr;
+        dateInput.value = todayStr;
+        startInput.value = "09:00";
+        endInput.value = "18:00";
+        
+        currentDate = dateInput.value;
+        currentStart = startInput.value;
+        currentEnd = endInput.value;
+        
+        dateInput.addEventListener('change', onDateTimeChange);
+        startInput.addEventListener('change', onDateTimeChange);
+        endInput.addEventListener('change', onDateTimeChange);
     }
-
-    // 初始化頁面: 載入資料, 渲染, 設定監聽器
+    
+    // 啟動自動過期檢查 (每30秒)
+    function startAutoExpireCheck() {
+        if (autoExpireInterval) clearInterval(autoExpireInterval);
+        autoExpireInterval = setInterval(() => {
+            const changed = expireOldReservations();
+            // 如果有任何預約被自動轉為 done，刷新畫面
+            if (changed) {
+                renderSeatMap();
+                renderList();
+            }
+        }, 30000);
+    }
+    
     function init() {
-        // 確保 localStorage 沒有寫死的假資料，若沒有任何資料則保持空陣列 (完全靜態)
-        // 但為了防止"示範資料"，不做任何預填。
-        if (!localStorage.getItem(STORAGE_KEY)) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-        }
-        // 讀取全部初始記錄顯示 (預設 filter = all)
-        const allRecords = loadData();
-        updateStats(allRecords);
-        renderList(allRecords);  // 初始顯示全部
-        // 設定篩選按鈕
-        initFilterButtons();
-        // 設定表單
-        setupFormHandler();
+        initDateTimePicker();
+        initFilters();
+        setupBooking();
+        startAutoExpireCheck();
+        renderSeatMap();
+        renderList();
     }
     
-    // 啟動系統
     init();
 </script>
 </body>
