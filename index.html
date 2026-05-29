@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>自習室預約系統 | 自動釋放 + 手動完成座位</title>
+    <title>自習室預約系統 | Google Sheet 同步版</title>
     <style>
         * {
             margin: 0;
@@ -368,8 +368,125 @@
 </div>
 
 <script>
-    // ======================= 全新實例：不保留任何舊記錄 =======================
-    localStorage.setItem('records', JSON.stringify([]));
+    // ======================= Backend Connector =======================
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxibF6Gaw3qiOvO4PkvkuDO1LzPuhRr261rWpmCxaA7xRKsJyxHgBYfxsJH9UQWwi0m6g/exec";
+    
+    // 同步到 Google Sheet (create / update)
+    async function syncToSheet(payload) {
+        try {
+            const response = await fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors", // 避免 CORS 錯誤，但無法讀取回應
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            });
+            // 因為 no-cors 無法讀取回應，這裡不處理 response
+            console.log("Sync to sheet sent:", payload);
+        } catch (err) {
+            console.warn("syncToSheet failed (offline or CORS), but local data saved:", err);
+        }
+    }
+    
+    // 從 Google Sheet 讀取所有記錄
+    async function fetchRecordsFromSheet() {
+        try {
+            const response = await fetch(APPS_SCRIPT_URL);
+            const data = await response.json();
+            if (data.ok && Array.isArray(data.records)) {
+                return data.records;
+            } else {
+                throw new Error(data.error || "Invalid response");
+            }
+        } catch (err) {
+            console.warn("fetchRecordsFromSheet failed, fallback to localStorage:", err);
+            return null;
+        }
+    }
+    
+    // 將 Sheet 欄位映射回前端 record 格式
+    function normalizeRecord(sheetRecord) {
+        return {
+            id: sheetRecord.ID || sheetRecord.id || "",
+            createdAt: sheetRecord.CreatedAt || sheetRecord.createdAt || new Date().toISOString(),
+            status: sheetRecord.Status || sheetRecord.status || "active",
+            seatNumber: sheetRecord.SeatNumber || sheetRecord.seatNumber || "",
+            date: sheetRecord.Date || sheetRecord.date || "",
+            startTime: sheetRecord.StartTime || sheetRecord.startTime || "",
+            endTime: sheetRecord.EndTime || sheetRecord.endTime || "",
+            useTime: sheetRecord.UseTime || sheetRecord.useTime || ""
+        };
+    }
+    
+    // ======================= 原有 localStorage 邏輯 (fallback) =======================
+    function loadDataFromLocal() {
+        const raw = localStorage.getItem('records');
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
+    }
+    
+    function saveAllDataToLocal(records) {
+        localStorage.setItem('records', JSON.stringify(records));
+    }
+    
+    // 合併遠端資料到 localStorage (當遠端讀取成功時)
+    function mergeRemoteToLocal(remoteRecords) {
+        if (!remoteRecords || !remoteRecords.length) return;
+        // 直接覆蓋 localStorage 為遠端資料（保持同步）
+        saveAllDataToLocal(remoteRecords);
+        return remoteRecords;
+    }
+    
+    // 改寫 loadData: 優先從 Sheet 讀取，失敗才從 localStorage
+    async function loadData() {
+        const remoteRecords = await fetchRecordsFromSheet();
+        if (remoteRecords && remoteRecords.length >= 0) {
+            const normalized = remoteRecords.map(normalizeRecord);
+            // 同步到 localStorage
+            saveAllDataToLocal(normalized);
+            return normalized;
+        }
+        // fallback to localStorage
+        return loadDataFromLocal();
+    }
+    
+    // 改寫 addRecord: 同時存 local 與同步 sheet
+    function addRecord(record) {
+        const records = loadDataFromLocal();
+        records.push(record);
+        saveAllDataToLocal(records);
+        // 非同步同步到 sheet (不等待)
+        syncToSheet({ action: "create", record: record });
+    }
+    
+    // 改寫 updateRecordStatus: 更新 local 並同步 sheet
+    function updateRecordStatus(id, newStatus) {
+        let records = loadDataFromLocal();
+        let updated = false;
+        const newRecords = records.map(r => {
+            if (r.id === id && r.status !== newStatus) {
+                updated = true;
+                return { ...r, status: newStatus };
+            }
+            return r;
+        });
+        if (updated) {
+            saveAllDataToLocal(newRecords);
+            // 同步到 sheet
+            syncToSheet({ action: "update", id: id, changes: { Status: newStatus } });
+        }
+        return updated;
+    }
+    
+    // 手動完成 (原有邏輯，但改用新的 updateRecordStatus)
+    function manualCompleteRecord(id) {
+        return updateRecordStatus(id, "done");
+    }
+    
+    // 其餘所有 UI 邏輯、座位表、渲染完全不動，僅替換資料來源函式
+    // ======================= 以下為原有程式碼，僅調整 loadData 為非同步 =======================
     
     // 24個座位 (6x4)
     const SEATS = [];
@@ -386,29 +503,15 @@
     let currentStart = '';
     let currentEnd = '';
 
-    // 每30秒自動檢查過期預約
     let autoExpireInterval = null;
 
     function generateId() {
         return Date.now() + '-' + Math.random().toString(36).substring(2, 10);
     }
 
-    function loadData() {
-        const raw = localStorage.getItem('records');
-        if (!raw) return [];
-        try {
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch(e) { return []; }
-    }
-
-    function saveAllData(records) {
-        localStorage.setItem('records', JSON.stringify(records));
-    }
-
     // 自動將過期的 active 預約轉為 done (時間到期)
     function expireOldReservations() {
-        let records = loadData();
+        let records = loadDataFromLocal();
         const now = new Date();
         let changed = false;
         const newRecords = records.map(record => {
@@ -422,32 +525,20 @@
             return record;
         });
         if (changed) {
-            saveAllData(newRecords);
+            saveAllDataToLocal(newRecords);
+            // 同步所有變更到 sheet (可優化批次更新，此處簡單同步每個變更)
+            newRecords.forEach(r => {
+                if (r.status === 'done') {
+                    syncToSheet({ action: "update", id: r.id, changes: { Status: "done" } });
+                }
+            });
             return newRecords;
         }
         return records;
     }
 
-    // 手動完成：直接將狀態改為 done (座位立即釋放)
-    function manualCompleteRecord(id) {
-        let records = loadData();
-        let updated = false;
-        const newRecords = records.map(r => {
-            if (r.id === id && r.status === 'active') {
-                updated = true;
-                return { ...r, status: 'done' };
-            }
-            return r;
-        });
-        if (updated) {
-            saveAllData(newRecords);
-            return true;
-        }
-        return false;
-    }
-
     function isSeatOccupied(seatNumber, date, startTime, endTime, excludeId = null) {
-        const records = loadData();
+        const records = loadDataFromLocal();
         return records.some(record => {
             if (record.status !== 'active') return false;
             if (excludeId && record.id === excludeId) return false;
@@ -458,7 +549,7 @@
     }
 
     function hasUserOverlap(date, startTime, endTime, excludeId = null) {
-        const records = loadData();
+        const records = loadDataFromLocal();
         return records.some(record => {
             if (record.status !== 'active') return false;
             if (excludeId && record.id === excludeId) return false;
@@ -494,13 +585,6 @@
         };
     }
 
-    function addRecord(record) {
-        const records = loadData();
-        records.push(record);
-        saveAllData(records);
-    }
-
-    // 獲取預約的動態狀態 (僅用於顯示，不改變資料)
     function getDynamicStatus(record) {
         if (record.status === 'done') return { type: 'done', text: '✅ 已完成' };
         const now = new Date();
@@ -508,7 +592,6 @@
         const endDateTime = new Date(`${record.date}T${record.endTime}:00`);
         if (now < startDateTime) return { type: 'upcoming', text: '⏳ 已預約' };
         if (now >= startDateTime && now <= endDateTime) return { type: 'active-using', text: '🟢 使用中' };
-        // 時間已過期 -> 回傳 done (實際轉換由 expireOldReservations 處理)
         return { type: 'done', text: '✅ 已完成' };
     }
 
@@ -516,7 +599,6 @@
         const container = document.getElementById('seatGrid');
         if (!container) return;
         
-        // 先過期處理，確保座位狀態最新
         expireOldReservations();
         
         const hasDateTime = currentDate && currentStart && currentEnd;
@@ -601,8 +683,8 @@
         }
     }
 
-    function renderList() {
-        let records = loadData();
+    async function renderList() {
+        let records = await loadData();  // 使用新的非同步 loadData
         // 過期轉換
         records = expireOldReservations();
         
@@ -639,7 +721,6 @@
                 statusClass = 'done';
                 borderClass = 'done';
             }
-            // 只有 active 狀態且尚未過期的才顯示手動完成按鈕
             const showManualBtn = (rec.status === 'active' && dynamic.type !== 'done');
             html += `
                 <div class="record-card ${borderClass}">
@@ -675,15 +756,13 @@
         document.getElementById('statsInfo').innerHTML = `⏳已預約 ${upcoming} ｜ 🟢使用中 ${activeCnt} ｜ ✅已完成 ${doneCnt}`;
     }
     
-    function handleManualDone(e) {
+    async function handleManualDone(e) {
         const btn = e.currentTarget;
         const id = btn.getAttribute('data-id');
         const success = manualCompleteRecord(id);
         if (success) {
-            // 手動完成後立即刷新座位表和列表，座位釋放
             renderSeatMap();
-            renderList();
-            // 顯示提示
+            await renderList();
             const msg = document.createElement('div');
             msg.innerText = `✓ 已完成預約，座位已釋放`;
             msg.style.position = 'fixed';
@@ -715,7 +794,7 @@
     
     function setupBooking() {
         const bookBtn = document.getElementById('bookBtn');
-        bookBtn.addEventListener('click', () => {
+        bookBtn.addEventListener('click', async () => {
             if (!selectedSeat) {
                 alert('請先選擇日期/時間，再從座位表點擊一個可預約座位');
                 return;
@@ -732,7 +811,6 @@
                 alert('結束時間必須晚於開始時間');
                 return;
             }
-            // 再次檢查座位是否仍可預約
             if (isSeatOccupied(selectedSeat, finalDate, finalStart, finalEnd)) {
                 alert(`座位 ${selectedSeat} 在該時段已被預約，請重新整理或選擇其他座位`);
                 renderSeatMap();
@@ -747,7 +825,7 @@
             addRecord(newRecord);
             selectedSeat = null;
             renderSeatMap();
-            renderList();
+            await renderList();
             
             const msg = document.createElement('div');
             msg.innerText = `✓ 成功預約 ${newRecord.seatNumber} ${finalDate} ${finalStart}~${finalEnd}`;
@@ -767,13 +845,13 @@
     function initFilters() {
         const btns = document.querySelectorAll('.filter-btn');
         btns.forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const filter = btn.getAttribute('data-filter');
                 if (!filter) return;
                 btns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentFilter = filter;
-                renderList();
+                await renderList();
             });
         });
         document.querySelector('.filter-btn[data-filter="upcoming"]').classList.add('active');
@@ -803,12 +881,10 @@
         endInput.addEventListener('change', onDateTimeChange);
     }
     
-    // 啟動自動過期檢查 (每30秒)
     function startAutoExpireCheck() {
         if (autoExpireInterval) clearInterval(autoExpireInterval);
         autoExpireInterval = setInterval(() => {
             const changed = expireOldReservations();
-            // 如果有任何預約被自動轉為 done，刷新畫面
             if (changed) {
                 renderSeatMap();
                 renderList();
@@ -816,13 +892,13 @@
         }, 30000);
     }
     
-    function init() {
+    async function init() {
         initDateTimePicker();
         initFilters();
         setupBooking();
         startAutoExpireCheck();
         renderSeatMap();
-        renderList();
+        await renderList();
     }
     
     init();
